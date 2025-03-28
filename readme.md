@@ -1,6 +1,8 @@
 # Socket Module
 
-The Socket module provides a simple, event-based interface for client-server communication
+**Disclaimer:** Roblox does not natively support sockets. This module provides a socket-like interface built on top of Roblox's RemoteEvents for client-server communication.
+
+The "Socket" module provides a simple, event-based interface for client-server communication
 in Roblox, similar to socket.io. It wraps around RemoteEvents and offers the following key features:
 
 - **Event Listening**: Register event listeners using `On`, remove them with `Off`, or listen only once with `Once`.
