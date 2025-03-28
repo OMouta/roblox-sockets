@@ -33,6 +33,4 @@ socket:Emit("RequestTargetedMessage", player.Name)
 local latency = socket:Ping()
 print("Client measured latency (seconds):", latency)
 
-socket:On("HelloFromServer", function(message)
-    print("Second listener received:", message)
-end)
+socket:Emit("UpdateState", math.random(1, 10))

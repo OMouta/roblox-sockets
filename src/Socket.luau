@@ -217,17 +217,36 @@ function Socket:Call(eventName: string, timeout: number?, ...: any)
     return result
 end
 
-function Socket:BroadcastExcept(skipPlayer: Player, eventName: string, ...: any)
+function Socket:BroadcastExcept(skipPlayers: { Player } | Player, eventName: string, ...: any)
     if RunService:IsClient() then
         error("BroadcastExcept is only available on the server!")
     end
+
+    local playersToSkip = {}
+    if typeof(skipPlayers) == "table" then
+        playersToSkip = skipPlayers :: { Player }
+    else
+        playersToSkip = { skipPlayers :: Player }
+    end
+
     for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-        if p ~= skipPlayer then
+        local skip = false
+        for _, skipPlayer in ipairs(playersToSkip) do
+            if p == skipPlayer then
+                skip = true
+                break
+            end
+        end
+        if not skip then
             self.remoteEvent:FireClient(p, eventName, ...)
         end
     end
     if self.debug then
-        print("[Socket DEBUG] Broadcasted event:", eventName, "to all except", skipPlayer.Name)
+        local names = {}
+        for _, player in ipairs(playersToSkip) do
+            table.insert(names, player.Name)
+        end
+        print("[Socket DEBUG] Broadcasted event:", eventName, "to all except", table.concat(names, ", "))
     end
 end
 
