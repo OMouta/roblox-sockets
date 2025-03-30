@@ -34,3 +34,19 @@ local latency = socket:Ping()
 print("Client measured latency (seconds):", latency)
 
 socket:Emit("UpdateState", math.random(1, 10))
+
+socket:Emit("RequestJoinRoom", "TestRoom")
+
+socket:On("RoomJoined", function(roomName)
+    print("Joined room:", roomName)
+end)
+
+socket:On("RoomLeft", function(roomName)
+    print("Left room:", roomName)
+end)
+
+socket:On("RoomMessage", function(sender, message)
+    print("Message from", sender, "in room:", message)
+end)
+
+socket:Emit("MessageRoom", "TestRoom", "Hello, room!")

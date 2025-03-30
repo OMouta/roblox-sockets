@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Socket = {}
 Socket.__index = Socket
+Socket.rooms = {}
 
 export type ListenerCallback = (...any) -> ()
 export type Socket = {
@@ -247,6 +248,60 @@ function Socket:BroadcastExcept(skipPlayers: { Player } | Player, eventName: str
             table.insert(names, player.Name)
         end
         print("[Socket DEBUG] Broadcasted event:", eventName, "to all except", table.concat(names, ", "))
+    end
+end
+
+function Socket:JoinRoom(player: Player, roomName: string)
+    if RunService:IsClient() then
+        error("JoinRoom is only available on the server!")
+    end
+
+    if not self.rooms[roomName] then
+        self.rooms[roomName] = {}
+    end
+    table.insert(self.rooms[roomName], player)
+    if self.debug then
+        print("[Socket DEBUG] Player", player.Name, "joined room:", roomName)
+    end
+end
+
+function Socket:LeaveRoom(player: Player, roomName: string)
+    if RunService:IsClient() then
+        error("LeaveRoom is only available on the server!")
+    end
+
+    if not self.rooms[roomName] then
+        return
+    end
+    for i, p in ipairs(self.rooms[roomName]) do
+        if p == player then
+            table.remove(self.rooms[roomName], i)
+            if self.debug then
+                print("[Socket DEBUG] Player", player.Name, "left room:", roomName)
+            end
+            break
+        end
+    end
+    if #self.rooms[roomName] == 0 then
+        self.rooms[roomName] = nil -- Remove empty room
+    end
+end
+
+function Socket:BroadcastToRoom(roomName: string, eventName: string, ...: any)
+    if RunService:IsClient() then
+        error("BroadcastToRoom is only available on the server!")
+    end
+
+    local room = self.rooms[roomName]
+    if not room then
+        warn("Room", roomName, "does not exist!")
+        return
+    end
+    for _, player in ipairs(room) do
+        self.remoteEvent:FireClient(player, eventName, ...)
+    end
+    if self.debug then
+        print("[Socket DEBUG] Broadcasted event:", eventName, "to room:", roomName)
     end
 end
 
