@@ -26,48 +26,111 @@ Socket.rooms = {}
 
 export type ListenerCallback = (...any) -> ()
 export type Socket = {
-	remoteEvent: RemoteEvent,
-	listeners: { [string]: ListenerCallback? },
-	pendingRequests: { [string]: BindableEvent }?,
+    remoteEvent: RemoteEvent,
+    listeners: { [string]: ListenerCallback? },
+    pendingRequests: { [string]: BindableEvent }?,
     debug: boolean,
-	On: (self: Socket, eventName: string, callback: ListenerCallback) -> (),
-	Off: (self: Socket, eventName: string) -> (),
-	Once: (self: Socket, eventName: string, callback: ListenerCallback) -> (),
-	Emit: (self: Socket, eventName: string, ...any) -> (),
-	EmitTo: (self: Socket, player: Player, eventName: string, ...any) -> (),
-	Call: (self: Socket, eventName: string, ...any) -> (),
-	initialize: (self: Socket) -> (),
+    incomingMiddleware: { ((direction: string, eventName: string, args: {any}) -> (string, {any})) },
+    outgoingMiddleware: { ((direction: string, eventName: string, args: {any}) -> (string, {any})) },
+    On: (self: Socket, eventName: string, callback: ListenerCallback) -> (),
+    Off: (self: Socket, eventName: string) -> (),
+    Once: (self: Socket, eventName: string, callback: ListenerCallback) -> (),
+    Emit: (self: Socket, eventName: string, ...any) -> (),
+    EmitTo: (self: Socket, player: Player, eventName: string, ...any) -> (),
+    Call: (self: Socket, eventName: string, ...any) -> (),
+    UseIncoming: (self: Socket, middleware: (string, string, {any}) -> (string, {any})) -> (),
+    UseOutgoing: (self: Socket, middleware: (string, string, {any}) -> (string, {any})) -> (),
+    initialize: (self: Socket) -> (),
 }
 
-function Socket.new(remoteEvent: RemoteEvent?, debug: boolean?): Socket
-	local self = setmetatable({}, Socket) :: Socket
+function Socket.new(idOrRemoteEvent: any, debug: boolean?): Socket
+    local self = setmetatable({}, Socket) :: Socket
     self.debug = debug or false
-	if remoteEvent then
-		self.remoteEvent = remoteEvent
-	else
-		local eventName = "SocketEvent"
+
+    self.incomingMiddleware = {}
+    self.outgoingMiddleware = {}
+
+    if idOrRemoteEvent then
+        local t = typeof(idOrRemoteEvent)
+        if t == "Instance" and idOrRemoteEvent:IsA("RemoteEvent") then
+            self.remoteEvent = idOrRemoteEvent
+        elseif t == "string" then
+            local eventName = idOrRemoteEvent
+            local existing = ReplicatedStorage:FindFirstChild(eventName)
+            if existing and existing:IsA("RemoteEvent") then
+                self.remoteEvent = existing
+            else
+                if RunService:IsClient() then
+                    error("RemoteEvent '" .. eventName .. "' does not exist on the client")
+                else
+                    self.remoteEvent = Instance.new("RemoteEvent")
+                    self.remoteEvent.Name = eventName
+                    self.remoteEvent.Parent = ReplicatedStorage
+                end
+            end
+        else
+            -- Fallback default if type is not recognized
+            local eventName = "SocketEvent"
+            local existing = ReplicatedStorage:FindFirstChild(eventName)
+            if existing and existing:IsA("RemoteEvent") then
+                self.remoteEvent = existing
+            else
+                if RunService:IsClient() then
+                    error("Default RemoteEvent '" .. eventName .. "' not found on the client")
+                else
+                    self.remoteEvent = Instance.new("RemoteEvent")
+                    self.remoteEvent.Name = eventName
+                    self.remoteEvent.Parent = ReplicatedStorage
+                end
+            end
+        end
+    else
+        local eventName = "SocketEvent"
         local existing = ReplicatedStorage:FindFirstChild(eventName)
         if existing and existing:IsA("RemoteEvent") then
             self.remoteEvent = existing
         else
-            self.remoteEvent = Instance.new("RemoteEvent")
-            self.remoteEvent.Name = eventName
-            self.remoteEvent.Parent = ReplicatedStorage
+            if RunService:IsClient() then
+                error("Default RemoteEvent '" .. eventName .. "' not found on the client")
+            else
+                self.remoteEvent = Instance.new("RemoteEvent")
+                self.remoteEvent.Name = eventName
+                self.remoteEvent.Parent = ReplicatedStorage
+            end
         end
-	end
-	self.listeners = {}
-	if RunService:IsClient() then
+    end
+
+    self.listeners = {}
+    if RunService:IsClient() then
         self.pendingRequests = {}
     end
-	self:initialize()
-	return self
+    self:initialize()
+    return self
+end
+
+function Socket:UseIncoming(middleware: (string, string, {any}) -> (string, {any}))
+    table.insert(self.incomingMiddleware, middleware)
+end
+
+function Socket:UseOutgoing(middleware: (string, string, {any}) -> (string, {any}))
+    table.insert(self.outgoingMiddleware, middleware)
+end
+
+-- Add helper function to process middleware
+function Socket:_applyMiddleware(middlewareList, direction: string, eventName: string, args: {any}): (string, {any})
+	for _, mw in ipairs(middlewareList) do
+		eventName, args = mw(direction, eventName, args)
+	end
+	return eventName, args
 end
 
 function Socket:initialize()
     if RunService:IsClient() then
         self.remoteEvent.OnClientEvent:Connect(function(eventName: string, ...: any)
+            local args = { ... }
+            eventName, args = self:_applyMiddleware(self.incomingMiddleware, "incoming", eventName, args)
             if eventName == "CallResponse" then
-                local requestId, response = ...
+                local requestId, response = table.unpack(args)
                 if self.pendingRequests and self.pendingRequests[requestId] then
                     self.pendingRequests[requestId]:Fire(response)
                 end
@@ -75,7 +138,7 @@ function Socket:initialize()
                 local callbacks = self.listeners[eventName]
                 if callbacks then
                     for _, callback in ipairs(callbacks) do
-                        local success, err = pcall(callback, ...)
+                        local success, err = pcall(callback, table.unpack(args))
                         if not success then
                             warn("Error in client callback for event '" .. eventName .. "': " .. tostring(err))
                         end
@@ -88,12 +151,14 @@ function Socket:initialize()
         end)
     else
         self.remoteEvent.OnServerEvent:Connect(function(player: Player, command: string, ...: any)
+            local args = { ... }
+            command, args = self:_applyMiddleware(self.incomingMiddleware, "incoming", command, args)
             if command == "CallRequest" then
-                local targetEvent, requestId = ...
+                local targetEvent, requestId = table.unpack(args)
                 local callbacks = self.listeners[targetEvent]
                 if callbacks then
                     for _, callback in ipairs(callbacks) do
-                        local success, response = pcall(callback, player, select(3, ...))
+                        local success, response = pcall(callback, player, select(3, table.unpack(args)))
                         if success then
                             self.remoteEvent:FireClient(player, "CallResponse", requestId, response)
                         else
@@ -110,7 +175,7 @@ function Socket:initialize()
                 local callbacks = self.listeners[command]
                 if callbacks then
                     for _, callback in ipairs(callbacks) do
-                        local success, err = pcall(callback, player, ...)
+                        local success, err = pcall(callback, player, table.unpack(args))
                         if not success then
                             warn("Error in server callback for event '" .. command .. "': " .. tostring(err))
                         end
@@ -166,18 +231,22 @@ function Socket:Once(eventName: string, callback: ListenerCallback)
 end
 
 function Socket:Emit(eventName: string, ...: any)
+    local args = { ... }
+    eventName, args = self:_applyMiddleware(self.outgoingMiddleware, "outgoing", eventName, args)
     if RunService:IsClient() then
-        self.remoteEvent:FireServer(eventName, ...)
+        self.remoteEvent:FireServer(eventName, table.unpack(args))
     else
-        self.remoteEvent:FireAllClients(eventName, ...)
+        self.remoteEvent:FireAllClients(eventName, table.unpack(args))
     end
 end
 
 function Socket:EmitTo(player: Player, eventName: string, ...: any)
+    local args = { ... }
+    eventName, args = self:_applyMiddleware(self.outgoingMiddleware, "outgoing", eventName, args)
     if RunService:IsClient() then
         error("EmitTo is only available on the server!")
     else
-        self.remoteEvent:FireClient(player, eventName, ...)
+        self.remoteEvent:FireClient(player, eventName, table.unpack(args))
     end
 end
 
@@ -186,12 +255,15 @@ function Socket:Call(eventName: string, timeout: number?, ...: any)
         error("Call is only available on the client!")
     end
 
+    local args = { ... }
+    eventName, args = self:_applyMiddleware(self.outgoingMiddleware, "outgoing", eventName, args)
+
     timeout = timeout or 5
 
     local requestId = HttpService:GenerateGUID(false)
     local signal = Instance.new("BindableEvent")
     self.pendingRequests[requestId] = signal
-    self.remoteEvent:FireServer("CallRequest", eventName, requestId, ...)
+    self.remoteEvent:FireServer("CallRequest", eventName, requestId, table.unpack(args))
 
     local startTime = tick()
     local fired = false
@@ -223,6 +295,9 @@ function Socket:BroadcastExcept(skipPlayers: { Player } | Player, eventName: str
         error("BroadcastExcept is only available on the server!")
     end
 
+    local args = { ... }
+    eventName, args = self:_applyMiddleware(self.outgoingMiddleware, "outgoing", eventName, args)
+
     local playersToSkip = {}
     if typeof(skipPlayers) == "table" then
         playersToSkip = skipPlayers :: { Player }
@@ -239,7 +314,7 @@ function Socket:BroadcastExcept(skipPlayers: { Player } | Player, eventName: str
             end
         end
         if not skip then
-            self.remoteEvent:FireClient(p, eventName, ...)
+            self.remoteEvent:FireClient(p, eventName, table.unpack(args))
         end
     end
     if self.debug then
@@ -292,13 +367,16 @@ function Socket:BroadcastToRoom(roomName: string, eventName: string, ...: any)
         error("BroadcastToRoom is only available on the server!")
     end
 
+    local args = { ... }
+    eventName, args = self:_applyMiddleware(self.outgoingMiddleware, "outgoing", eventName, args)
+
     local room = self.rooms[roomName]
     if not room then
         warn("Room", roomName, "does not exist!")
         return
     end
     for _, player in ipairs(room) do
-        self.remoteEvent:FireClient(player, eventName, ...)
+        self.remoteEvent:FireClient(player, eventName, table.unpack(args))
     end
     if self.debug then
         print("[Socket DEBUG] Broadcasted event:", eventName, "to room:", roomName)

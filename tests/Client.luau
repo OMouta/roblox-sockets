@@ -3,6 +3,30 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Socket = require(ReplicatedStorage:WaitForChild("Socket"))
 local socket = Socket.new(nil, true)
 
+socket:UseIncoming(function(direction, eventName, args)
+    print("[Client Middleware Incoming]", direction, eventName, table.concat(
+        (function()
+            local t = {}
+            for i, v in ipairs(args) do
+                t[i] = tostring(v)
+            end
+            return t
+        end)(), ", "))
+    return eventName, args
+end)
+
+socket:UseOutgoing(function(direction, eventName, args)
+    print("[Client Middleware Outgoing]", direction, eventName, table.concat(
+        (function()
+            local t = {}
+            for i, v in ipairs(args) do
+                t[i] = tostring(v)
+            end
+            return t
+        end)(), ", "))
+    return eventName, args
+end)
+
 socket:On("HelloFromServer", function(message)
     print("Client received welcome message:", message)
 end)
