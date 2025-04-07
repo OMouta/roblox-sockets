@@ -27,6 +27,8 @@ socket:UseOutgoing(function(direction, eventName, args)
 	return eventName, args
 end)
 
+socket:Emit("ScheduledBroadcastTest", 5, "This is a scheduled message!")
+
 socket:On("HelloFromServer", function(message)
 	print("Client received welcome message:", message)
 end)
@@ -78,5 +80,3 @@ socket:On("RoomMessage", function(sender, message)
 end)
 
 socket:Emit("MessageRoom", "TestRoom", "Hello, room!")
-
-socket:Emit("ScheduledBroadcastTest", 5, "This is a scheduled message!")

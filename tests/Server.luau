@@ -27,6 +27,11 @@ socket:UseOutgoing(function(direction, eventName, args)
 	return eventName, args
 end)
 
+socket:On("ScheduledBroadcastTest", function(player, delay, message)
+    print("Server received scheduled broadcast request from", player.Name, "with delay:", delay, "and message:", message)
+    socket:ScheduleBroadcast(delay, "ScheduledBroadcast", message)
+end)
+
 socket:On("HelloFromClient", function(player, message)
 	print("Server received from", player.Name, ":", message)
 	socket:Emit("HelloFromServer", "Hello, " .. player.Name .. "!")
@@ -69,9 +74,4 @@ end)
 socket:On("MessageRoom", function(player, roomName, message)
 	print(player.Name, "is sending message to room", roomName, ":", message)
 	socket:BroadcastToRoom(roomName, "RoomMessage", player.Name, message)
-end)
-
-socket:On("ScheduledBroadcastTest", function(player, delay, message)
-    print("Server received scheduled broadcast request from", player.Name, "with delay:", delay, "and message:", message)
-    socket:ScheduleBroadcast(delay, "ScheduledBroadcast", message)
 end)
