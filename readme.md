@@ -181,6 +181,47 @@ local latency = socket:Ping()
 print("Client measured latency (seconds):", latency)
 ````
 
+### 7. Scheduled Broadcasts
+
+The `ScheduleBroadcast` method allows the server to schedule a broadcast to all clients after a specified delay.
+
+**Server Example:**
+
+````lua
+socket:ScheduleBroadcast(10, "EventName", "This message will be broadcasted after 10 seconds.")
+````
+
+**Client Example:**
+
+Clients can listen for the scheduled broadcast:
+
+````lua
+socket:On("EventName", function(message)
+    print("Received scheduled message:", message)
+end)
+````
+
+**Test Example:**
+
+A test case has been added to demonstrate this feature:
+
+- The server listens for a `ScheduledBroadcastTest` event and schedules a broadcast.
+- The client emits the `ScheduledBroadcastTest` event with a delay and message.
+
+**Server Test:**
+
+````lua
+socket:On("ScheduledBroadcastTest", function(player, delay, message)
+    socket:ScheduleBroadcast(delay, "ScheduledBroadcast", message)
+end)
+````
+
+**Client Test:**
+
+````lua
+socket:Emit("ScheduledBroadcastTest", 5, "This is a scheduled message!")
+````
+
 ---
 
 ## Module Overview (Socket.luau)

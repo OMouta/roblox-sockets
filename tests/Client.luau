@@ -4,39 +4,43 @@ local Socket = require(ReplicatedStorage:WaitForChild("Socket"))
 local socket = Socket.new(nil, true)
 
 socket:UseIncoming(function(direction, eventName, args)
-    print("[Client Middleware Incoming]", direction, eventName, table.concat(
-        (function()
-            local t = {}
-            for i, v in ipairs(args) do
-                t[i] = tostring(v)
-            end
-            return t
-        end)(), ", "))
-    return eventName, args
+	print("[Client Middleware Incoming]", direction, eventName, table.concat(
+		(function()
+			local t = {}
+			for i, v in ipairs(args) do
+				t[i] = tostring(v)
+			end
+			return t
+		end)(), ", "))
+	return eventName, args
 end)
 
 socket:UseOutgoing(function(direction, eventName, args)
-    print("[Client Middleware Outgoing]", direction, eventName, table.concat(
-        (function()
-            local t = {}
-            for i, v in ipairs(args) do
-                t[i] = tostring(v)
-            end
-            return t
-        end)(), ", "))
-    return eventName, args
+	print("[Client Middleware Outgoing]", direction, eventName, table.concat(
+		(function()
+			local t = {}
+			for i, v in ipairs(args) do
+				t[i] = tostring(v)
+			end
+			return t
+		end)(), ", "))
+	return eventName, args
 end)
 
 socket:On("HelloFromServer", function(message)
-    print("Client received welcome message:", message)
+	print("Client received welcome message:", message)
 end)
 
 socket:On("TargetedMessage", function(message)
-    print("Client received targeted message:", message)
+	print("Client received targeted message:", message)
 end)
 
 socket:On("StateUpdate", function(newState)
-    print("Client received state update:", newState)
+	print("Client received state update:", newState)
+end)
+
+socket:On("ScheduledBroadcast", function(message)
+    print("Client received scheduled broadcast message:", message)
 end)
 
 socket:Emit("HelloFromClient", "Hi Server, this is the client!")
@@ -46,9 +50,9 @@ print("Client received server time:", serverTime)
 
 local result = socket:Call("DoesNotExist", 3, "arg1", "arg2")
 if result then
-    print("Received response:", result)
+	print("Received response:", result)
 else
-    print("Timed out!")
+	print("Timed out!")
 end
 
 local player = Players.LocalPlayer
@@ -62,15 +66,17 @@ socket:Emit("UpdateState", math.random(1, 10))
 socket:Emit("RequestJoinRoom", "TestRoom")
 
 socket:On("RoomJoined", function(roomName)
-    print("Joined room:", roomName)
+	print("Joined room:", roomName)
 end)
 
 socket:On("RoomLeft", function(roomName)
-    print("Left room:", roomName)
+	print("Left room:", roomName)
 end)
 
 socket:On("RoomMessage", function(sender, message)
-    print("Message from", sender, "in room:", message)
+	print("Message from", sender, "in room:", message)
 end)
 
 socket:Emit("MessageRoom", "TestRoom", "Hello, room!")
+
+socket:Emit("ScheduledBroadcastTest", 5, "This is a scheduled message!")
