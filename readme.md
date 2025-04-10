@@ -222,6 +222,174 @@ end)
 socket:Emit("ScheduledBroadcastTest", 5, "This is a scheduled message!")
 ````
 
+### 8. Parallel Socket Operations
+
+The Socket module now supports parallel operations with both `EmitParallel` and `CallParallel` methods. These allow multiple socket operations to be executed concurrently, with different resolution strategies:
+
+- **all**: All operations must succeed for the overall result to be successful
+- **any**: At least one operation must succeed for the overall result to be successful
+- **race**: The first operation to complete (success or failure) determines the result
+
+#### Parallel Calls (Client-side)
+
+```lua
+local result = socket:CallParallel({
+    {
+        eventName = "Event1",
+        args = {"Arg1", "Arg2"},
+        timeout = 5 -- Optional timeout in seconds
+    },
+    {
+        eventName = "Event2",
+        args = {"Arg1", "Arg2"},
+        timeout = 3
+    }
+}, "all") -- Strategy: can be "all", "any", or "race"
+
+print("Overall success:", result.success)
+
+-- Check individual results
+for eventName, response in pairs(result.results) do
+    print("Success for", eventName, ":", response)
+end
+
+-- Check individual errors
+for eventName, errorMsg in pairs(result.errors) do
+    print("Error for", eventName, ":", errorMsg)
+end
+```
+
+#### Parallel Emissions (Server-side)
+
+```lua
+local result = socket:EmitParallel({
+    {
+        eventName = "Event1",
+        args = {"Message1"}
+    },
+    {
+        eventName = "Event2",
+        args = {"Message2"}
+    }
+}, "all") -- Strategy: can be "all", "any", or "race"
+
+print("All emissions successful:", result.success)
+```
+
+#### Benefits of Parallel Operations
+
+- **Improved Efficiency**: Execute multiple network operations simultaneously
+- **Fault Tolerance**: Continue even if some operations fail (with "any" strategy)
+- **Race Conditions**: Get the fastest result first (with "race" strategy)
+- **Timeout Handling**: Each operation can have its own timeout
+- **Comprehensive Results**: Get detailed success/failure information for each operation
+
+**Test Example:**
+
+Client-side test showing how to use parallel operations and handle the results:
+
+```lua
+local parallelResult = socket:CallParallel({
+    {
+        eventName = "FastOperation",
+        args = {"Fast data"},
+        timeout = 5
+    },
+    {
+        eventName = "SlowOperation",
+        args = {"Slow data"},
+        timeout = 3 -- Will timeout if the operation takes longer
+    }
+}, "any") -- We only need one to succeed
+
+if parallelResult.success then
+    print("At least one operation succeeded!")
+else
+    print("All operations failed!")
+end
+```
+
+### 9. Unreliable Event Transmission
+
+The Socket module now supports unreliable event transmission through UnreliableRemoteEvent instances. Unreliable events are perfect for frequent, non-critical updates where occasional packet loss is acceptable in exchange for reduced network overhead.
+
+#### Setting Up Unreliable Mode
+
+Enable unreliable mode when creating a socket by passing options:
+
+```lua
+local socket = Socket.new("MyChannel", { 
+    debug = true,       -- Optional debug mode
+    unreliable = true   -- Enable unreliable events support
+})
+```
+
+This creates both a reliable RemoteEvent and an unreliable UnreliableRemoteEvent. For backward compatibility, you can also use the old debug parameter:
+
+```lua
+-- Legacy way - only sets debug mode, no unreliable support
+local socket = Socket.new("MyChannel", true)
+
+-- New way - full options support
+local socket = Socket.new("MyChannel", { debug = true, unreliable = true })
+```
+
+#### Using Unreliable Events
+
+Once unreliable mode is enabled, you can use the following methods:
+
+**Unreliable Emit Methods**:
+
+```lua
+-- Client-to-server or server-to-all-clients unreliable transmission
+socket:EmitUnreliable("PlayerPosition", position)
+
+-- Server-to-specific-client unreliable transmission
+socket:EmitToUnreliable(player, "EnemyPosition", enemyPosition)
+
+-- Server broadcasts to all players except specified ones
+socket:BroadcastExceptUnreliable(player, "OtherPlayerPositions", positions)
+
+-- Server broadcasts to players in a specific room
+socket:BroadcastToRoomUnreliable("GameRoom", "GameState", gameState)
+```
+
+#### When to Use Unreliable Events
+
+Unreliable transmission is ideal for:
+
+- Frequent position updates (player movements, projectiles)
+- Visual effects that aren't gameplay-critical
+- Temporary state information that's quickly superseded
+- High-frequency sensor data or telemetry
+- Any data where occasional packet loss is acceptable
+
+Example: Player Position Updates
+
+```lua
+-- Server side
+socket:On("UnreliablePosition", function(player, position)
+    -- Process player position
+    -- Broadcast to other players in the same area
+    for _, otherPlayer in ipairs(playersInArea) do
+        if otherPlayer ~= player then
+            socket:EmitToUnreliable(otherPlayer, "OtherPlayerPosition", player.UserId, position)
+        end
+    end
+end)
+
+-- Client side
+local function updatePlayerPosition()
+    while true do
+        local position = character:GetPrimaryPartCFrame().Position
+        socket:EmitUnreliable("UnreliablePosition", position)
+        task.wait(0.1) -- Send position 10 times per second
+    end
+end
+```
+
+This implementation greatly reduces network traffic for high-frequency updates while maintaining gameplay experience.
+
 ---
 
 ## Module Overview (Socket.luau)
