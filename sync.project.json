@@ -1,0 +1,29 @@
+{
+  "name": "sockets-sync",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "Sockets": {
+        "$className": "ModuleScript",
+        "$path": "default.project.json"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$path": "tests/server"
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "tests/client"
+      }
+    }
+  }
+}

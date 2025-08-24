@@ -1,0 +1,33 @@
+{
+  "name": "omouta/sockets",
+  "version": "0.1.0",
+  "description": "A Roblox project managed with Jelly",
+  "license": "MIT",
+  "authors": [
+    "omouta <tiagomouta609@gmail.com>"
+  ],
+  "realm": "shared",
+  "include": [
+    "README.md",
+    "src/**",
+    "default.project.json",
+    "jelly.json"
+  ],
+  "exclude": [],
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "build": "rojo build default.project.json --output build/Sockets.rbxm",
+    "dev": "jelly run sourcemap && jelly run serve",
+    "serve": "rojo serve sync.project.json",
+    "sourcemap": "rojo sourcemap sync.project.json --output sourcemap.json",
+    "lint": "stylua --check src --glob !Packages/** --glob **.luau",
+    "format": "stylua src --glob !Packages/** --glob **.luau"
+  },
+  "jelly": {
+    "cleanup": true,
+    "optimize": true,
+    "packagesPath": "Packages",
+    "updateProjectFile": false
+  }
+}

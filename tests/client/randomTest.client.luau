@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Socket = require(ReplicatedStorage:WaitForChild("Socket"))
+local Socket = require(ReplicatedStorage:WaitForChild("Sockets").oldSockets)
 local socket = Socket.new(nil, true)
 
 socket:UseIncoming(function(direction, eventName, args)
@@ -106,8 +106,8 @@ local parallelCallResult = socket:CallParallel({
 }, "all")
 
 print("CallParallel 'all' result:", parallelCallResult.success)
-for eventName, result in pairs(parallelCallResult.results) do
-    print("  Event:", eventName, "Result:", result)
+for eventName, r in pairs(parallelCallResult.results) do
+    print("  Event:", eventName, "Result:", r)
 end
 
 if next(parallelCallResult.errors) then
@@ -132,8 +132,8 @@ local mixedCallResult = socket:CallParallel({
 }, "any")
 
 print("CallParallel 'any' result:", mixedCallResult.success)
-for eventName, result in pairs(mixedCallResult.results) do
-    print("  Event:", eventName, "Result:", result)
+for eventName, r in pairs(mixedCallResult.results) do
+    print("  Event:", eventName, "Result:", r)
 end
 
 if next(mixedCallResult.errors) then
@@ -144,7 +144,7 @@ end
 
 -- Test server EmitParallel through a Call
 print("\nTesting server EmitParallel through a Call:")
-local serverEmitResult = socket:Call("EmitParallelTest", "all")
+local serverEmitResult = socket:Call("EmitParallelTest", 5)
 print("Server EmitParallel call result:", serverEmitResult and serverEmitResult.success)
 
 -- Create a dedicated unreliable socket for testing high-frequency updates

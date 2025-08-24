@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Socket = require(ReplicatedStorage:WaitForChild("Socket"))
+local Socket = require(ReplicatedStorage:WaitForChild("Sockets").oldSockets)
 local socket = Socket.new(nil, true)
 
 socket:UseIncoming(function(direction, eventName, args)
